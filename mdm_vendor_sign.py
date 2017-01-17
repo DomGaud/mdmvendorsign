@@ -35,7 +35,7 @@ def mdm_vendor_sign():
 	csr_file = open(cli_args['csr']).read()
 	args = ['openssl', 'req', '-noout', '-verify' ]
 	command = subprocess.Popen(args, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.STDOUT)
-	output, error = command.communicate(input = csr_file)	
+	output, error = command.communicate(input = csr_file)
 	if output.rstrip().split('\n')[0] == 'verify OK':
 		p('OK\n')
 	else:
@@ -49,7 +49,7 @@ def mdm_vendor_sign():
 	key_file = open(cli_args['key']).read()
 	args = ['openssl', 'rsa', '-check', '-noout' ]
 	command = subprocess.Popen(args, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.STDOUT)
-	output, error = command.communicate(input = key_file)	
+	output, error = command.communicate(input = key_file)
 	if output.rstrip().split('\n')[0] == 'RSA key ok':
 		p('OK\n')
 	else:
@@ -75,7 +75,7 @@ openssl rsa -in key.pem -out the_private_key.key
 	mdm_cert_file = open(cli_args['mdm'],'rb').read()  # Binary read
 	args = ['openssl', 'x509', '-noout', '-inform', 'DER' ]
 	command = subprocess.Popen(args, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.STDOUT)
-	output, error = command.communicate(input = mdm_cert_file)	
+	output, error = command.communicate(input = mdm_cert_file)
 	if len(output) == 0:
 		p('OK\n')
 	else:
@@ -88,7 +88,7 @@ openssl rsa -in key.pem -out the_private_key.key
 	p('Converting %s to DER format... ' % cli_args['csr'])
 	args = ['openssl', 'req', '-inform', 'pem', '-outform', 'der' ]
 	command = subprocess.Popen(args, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.STDOUT)
-	output, error = command.communicate(input = csr_file)	
+	output, error = command.communicate(input = csr_file)
 	if error:
 		p('FAILED\n')
 		return
@@ -97,7 +97,7 @@ openssl rsa -in key.pem -out the_private_key.key
 	csr_b64 = b64encode(csr_der)
 
 
-	# Sign the CSR with the private key 
+	# Sign the CSR with the private key
 	# openssl sha1 -sign private_key.key -out signed_output.rsa data_to_sign.txt
 	p('Signing CSR with private key... ')
 	args = ['openssl', 'sha1', '-sign', cli_args['key'] ]
@@ -125,7 +125,12 @@ openssl rsa -in key.pem -out the_private_key.key
 	# TODO : Probably should verify these too
 
 	p('Downloading WWDR intermediate certificate...')
-	intermediate_cer = urllib2.urlopen('https://developer.apple.com/certificationauthority/AppleWWDRCA.cer').read()
+
+    # Note that using urllib2.urlopen results in a "connection reset by peer". Curl works so lets use that instead.
+	process = subprocess.Popen(['curl', 'https://developer.apple.com/certificationauthority/AppleWWDRCA.cer'], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	stdout, stderr = process.communicate()
+	intermediate_cer = stdout
+
 	p(' converting to pem...')
 	intermediate_pem = cer_to_pem(intermediate_cer)
 	p('OK\n')
@@ -140,9 +145,9 @@ openssl rsa -in key.pem -out the_private_key.key
 
 	p('Finishing...')
 	plist_dict = dict(
-	    PushCertRequestCSR = csr_b64,
-	    PushCertCertificateChain = mdm_pem + intermediate_pem + root_pem,
-	    PushCertSignature = signature
+		PushCertRequestCSR = csr_b64,
+		PushCertCertificateChain = mdm_pem + intermediate_pem + root_pem,
+		PushCertSignature = signature
 	)
 	plist_xml = writePlistToString(plist_dict)
 	plist_b64 = b64encode(plist_xml)
